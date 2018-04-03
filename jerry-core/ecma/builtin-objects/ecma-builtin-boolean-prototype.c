@@ -58,10 +58,8 @@ ecma_builtin_boolean_prototype_object_to_string (ecma_value_t this_arg) /**< thi
 {
   ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
-  ECMA_TRY_CATCH (value_of_ret,
-                  ecma_builtin_boolean_prototype_object_value_of (this_arg),
-                  ret_value);
-
+  ecma_value_t value_of_ret = 
+                  ecma_builtin_boolean_prototype_object_value_of (this_arg);
   if (ecma_is_value_true (value_of_ret))
   {
     ret_value = ecma_make_magic_string_value (LIT_MAGIC_STRING_TRUE);
@@ -72,8 +70,6 @@ ecma_builtin_boolean_prototype_object_to_string (ecma_value_t this_arg) /**< thi
 
     ret_value = ecma_make_magic_string_value (LIT_MAGIC_STRING_FALSE);
   }
-
-  ECMA_FINALIZE (value_of_ret);
 
   return ret_value;
 } /* ecma_builtin_boolean_prototype_object_to_string */
