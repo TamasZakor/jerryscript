@@ -352,29 +352,25 @@ class JerryDebugger(object):
     def _exec_command(self, command_id):
         self.send_command(command_id)
 
-    def show_display(self, args):
-        """ Toggle source code display after breakpoints """
-        self._exec_command(JERRY_DEBUGGER_STOP)
-        return self.process()
+    #def show_display(self, args):
+    #    """ Toggle source code display after breakpoints """
+    #    self._exec_command(JERRY_DEBUGGER_STOP)
+        #self.process()
 
     def quit(self):
         """ Exit JerryScript debugger """
         self._exec_command(JERRY_DEBUGGER_CONTINUE)
-        return self.process()
 
     def get_continue(self):
         """ Continue execution """
         self._exec_command(JERRY_DEBUGGER_CONTINUE)
-        return self.process()
 
     def stop(self):
         self.send_command(JERRY_DEBUGGER_STOP)
-        self.process()
 
     def finish(self):
         """ Continue running until the current function returns """
         self._exec_command(JERRY_DEBUGGER_FINISH)
-        return self.process()
 
     def next(self, args):
         """ Next breakpoint in the same context """
@@ -388,23 +384,23 @@ class JerryDebugger(object):
             except ValueError as val_errno:
                 result  = "Error: expected a positive integer: %s" % val_errno
                 return result
-            if self.last_breakpoint_hit is not None:
-                args = min(args, len(self.last_breakpoint_hit.function.lines) -
-                           self.last_breakpoint_hit.function.line) - 1
-            else:
-                args = 1
+            
+            #if self.last_breakpoint_hit is not None:
+            args = min(args, len(self.last_breakpoint_hit.function.lines) -
+                       self.last_breakpoint_hit.function.line) - 1
+            if args > 0:
+                while args != 0:
+                    self._exec_command(JERRY_DEBUGGER_NEXT)
+                    args = args - 1
         self._exec_command(JERRY_DEBUGGER_NEXT)
-        return self.process()
 
     def step(self):
         """ Next breakpoint, step into functions """
         self._exec_command(JERRY_DEBUGGER_STEP)
-        return self.process()
 
     def memstats(self):
         """ Memory statistics """
         self._exec_command(JERRY_DEBUGGER_MEMSTATS)
-        return self.process()
 
     def set_break(self, args):
         """ Insert breakpoints on the given lines or functions """
@@ -464,25 +460,20 @@ class JerryDebugger(object):
                               JERRY_DEBUGGER_GET_BACKTRACE,
                               max_depth)
         self.send_message(message)
-        #return result
-        return self.process()
 
     def eval(self, code):
         """ Evaluate JavaScript source code """
         self._send_string(JERRY_DEBUGGER_EVAL_EVAL + code, JERRY_DEBUGGER_EVAL)
-        return self.process()
 
     def throw(self, code):
         """ Throw an exception """
         self._send_string(JERRY_DEBUGGER_EVAL_THROW + code, JERRY_DEBUGGER_EVAL)
-        return self.process()
-        
+
     def abort(self, args):
         """ Throw an exception """
         self.delete("all")
         self.exception("0")  # disable the exception handler
         self._send_string(JERRY_DEBUGGER_EVAL_ABORT + args, JERRY_DEBUGGER_EVAL)
-        return self.process()
 
     def exception(self, args):
         """ Config the exception handler module """
@@ -667,7 +658,7 @@ class JerryDebugger(object):
     def store_client_sources(self, args):
         self.client_sources = args
         if len(args) > 0:
-            return self.process()
+            self.process()
 
     def send_client_source(self):
         # Send no more source message if there is no source
@@ -683,16 +674,16 @@ class JerryDebugger(object):
         with open(path, 'r') as src_file:
             content = path + "\0" + src_file.read()
             self._send_string(content, JERRY_DEBUGGER_CLIENT_SOURCE)
-            return self.process()
 
     def send_no_more_source(self):
         self._exec_command(JERRY_DEBUGGER_NO_MORE_SOURCES)
-        return self.process()
+        #self.process()
 
     def process(self):
         result = ''
         exception = ''
         exception_string = ""
+
         while True:
             data = self.get_message(False)
 
@@ -704,7 +695,6 @@ class JerryDebugger(object):
                     result = result[:-1]
                 result += '\3'
                 return result
-                #break
 
             buffer_type = ord(data[2])
             buffer_size = ord(data[1]) - 1
@@ -849,12 +839,14 @@ class JerryDebugger(object):
                 return result
 
             elif buffer_type == JERRY_DEBUGGER_WAIT_FOR_SOURCE:
-                result += str(self.send_client_source())
+                self.send_client_source() 
+                #print('a')
                 if 'None' in result:
                     result = result.replace('None','')
                     if result[-1:] == '\n':
                         result = result[:-1]
-                result += '\3'
+                result += '\4'
+                #continue
                 return result
             else:
                 raise Exception("Unknown message")

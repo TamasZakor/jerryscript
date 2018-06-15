@@ -55,11 +55,13 @@ class DebuggerPrompt(Cmd):
     def do_quit(self, _):
         """ Exit JerryScript debugger """
         self.debugger.quit()
+        self.cont = False
         self.quit = True
         self.stop = True
 
     def do_display(self, args):
         """ Toggle source code display after breakpoints """
+        self.cont = False
         if args:
             line_num = self.src_check_args(args)
             if line_num >= 0:
@@ -69,9 +71,8 @@ class DebuggerPrompt(Cmd):
         else:
             print("Non-negative integer number expected, 0 turns off this function")
             return
-        if self.dsp > 0:
+        if self.dsp > 0 and self.display == 0:
             self.debugger.stop()
-        self.cont = False
 
     def do_break(self, args):
         """ Insert breakpoints on the given lines or functions """
@@ -126,8 +127,13 @@ class DebuggerPrompt(Cmd):
 
     def do_next(self, args):
         """ Next breakpoint in the same context """
+        self.debugger.next(args)
+        self.cont = True
+        self.stop = True
+        '''
         if args != '':
             while int(args) != 0:
+            self.debugger.next(1)
                 result = self.debugger.next(1)
                 if '\3' in result:
                     result = result.replace('\3','')
@@ -135,44 +141,31 @@ class DebuggerPrompt(Cmd):
                 time.sleep(0.1)
                 if self.display > 0:
                     print_source(self.debugger, self.display, self.debugger.src_offset)
-                #    self.display = 0
-                #if self.dsp == 1:
-                #    print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
                 args = int(args) - 1
         else:
-            result = self.debugger.next(1)
+            self.debugger.next(1)
             if '\3' in result:
                 result = result.replace('\3','')
             print(result)
             time.sleep(0.3)
             if self.display > 0:
                 print_source(self.debugger, self.display, self.debugger.src_offset)
-            #    self.display = 0
-            #if self.dsp == 1:
-            #    print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
-        self.cont = False
+        '''
+
     do_n = do_next
 
     def do_step(self, _):
         """ Next breakpoint, step into functions """
-        result = self.debugger.step()
-        if '\3' in result:
-            result = result.replace('\3','')
-        print(result)
-        if self.display > 0:
-            print_source(self.debugger, self.display, self.debugger.src_offset)
-        #    self.display = 0
-        #if self.dsp == 1:
-        #    print_source(self.debugger,self.debugger.display,0)
-        self.cont = False
+        self.debugger.step()
+        self.cont = True
+        self.stop = True
     do_s = do_step
 
     def do_backtrace(self, args):
         """ Get backtrace data from debugger """
-        print(self.debugger.backtrace(args))
+        self.debugger.backtrace(args)
         self.show = 1
         self.stop = True
-
     do_bt = do_backtrace
 
     def do_src(self, args):
@@ -213,41 +206,15 @@ class DebuggerPrompt(Cmd):
 
     def do_continue(self, _):
         """ Continue execution """
-        result = self.debugger.get_continue()
-        if result is None:
-            self.quit = True
-            self.stop = True
-        elif '\3' in result:
-            result = result.replace('\3','')
-            if len(result) > 0:
-                print(result)
-            self.quit = True
-            self.stop = True
-        else:
-            print(result)
-            self.stop = True
-            self.cont = False
-        
-        #if not self.non_interactive:
-        #    print("Press enter to stop JavaScript execution.")
-        if self.display > 0:
-            print_source(self.debugger, self.display, self.debugger.src_offset)
-            #self.display = 0
-        #if self.dsp == 1:
-        #    print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
-
+        self.debugger.get_continue()
+        self.stop = True
+        self.cont = True
     do_c = do_continue
 
     def do_finish(self, _):
         """ Continue running until the current function returns """
-        result = self.debugger.finish()
-        if '\3' in result:
-            result = result.replace('\3','')
-        print(result)
-        if self.dsp == 1:
-            print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
-        self.cont = True
-
+        self.debugger.finish()
+        self.stop = True
     do_f = do_finish
 
     def do_dump(self, args):
@@ -259,45 +226,29 @@ class DebuggerPrompt(Cmd):
 
     def do_eval(self, args):
         """ Evaluate JavaScript source code """
-        print(self.debugger.eval(args))
-
+        self.debugger.eval(args)
+        self.stop = True
+        self.cont = True
     do_e = do_eval
 
     def do_memstats(self, _):
         """ Memory statistics """
-        print(self.debugger.memstats())
-
+        self.debugger.memstats()
+        self.stop = True
+        self.cont = True
     do_ms = do_memstats
 
     def do_abort(self, args):
         """ Throw an exception """
-        abort = self.debugger.abort(args)
-
+        self.debugger.abort(args)
         self.stop = True
-        self.quit = True
-        if '\3' in abort:
-            abort = abort.replace('\3','')
-        if len(abort) == 0:
-            if self.dsp == 1:
-                print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
-        else:
-            print(abort)
-            self.quit = True
-            self.stop = True
+        self.cont = True
 
     def do_throw(self, args):
         """ Throw an exception """
-        throw = self.debugger.throw(args)
-        if '\3' in throw:
-            throw = throw.replace('\3','')
-        print(throw)
-        if 'err:' in throw:
-            self.quit = True
-            self.stop = True
-        
-        if self.dsp == 1:
-            print_source(self.debugger, self.debugger.display, self.debugger.src_offset)
-            #self.debugger.stop()
+        self.debugger.throw(args)
+        self.stop = True
+        self.cont = True
 
     def do_exception(self, args):
         """ Config the exception handler module """
@@ -373,37 +324,113 @@ def main():
         prompt.cont = False
     else: 
         prompt.dsp = 0
-        if not args.client_source:
-            print(prompt.debugger.show_display(0))
+        prompt.stop = False
         prompt.cont = False
+        if not args.client_source:
+            result = prompt.debugger.process()
+            print(result)
+            prompt.cmdloop()
 
     if args.exception is not None:
         prompt.do_exception(str(args.exception))
 
     if args.client_source is not None:
         if args.client_source != []:
-            clsrc = prompt.debugger.store_client_sources(args.client_source)
-            if '\3' in clsrc:
-                clsrc = clsrc.replace('\3','')
-            print(clsrc)
-            #print(prompt.debugger.store_client_sources(args.client_source))
+            prompt.debugger.store_client_sources(args.client_source)
 
     while True:
+        if prompt.quit:
+            break
+
+        result = prompt.debugger.process()
+        if result == '':
+            break
+
         if not non_interactive and prompt.cont:
             if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
                 sys.stdin.readline()
                 prompt.cont = False
                 prompt.debugger.stop()
-                if args.display:
-                    print_source(prompt.debugger, prompt.display, 0)
-                continue
+                if result is None:
+                    continue
+                elif '\3' in result:
+                    result = result.replace('\3','')
+                    #print('0')
+                    if result != '':
+                        print(result)
+                    if prompt.display > 0:
+                        print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+                    #continue
+                    break
+                else:
+                    #print('1')
+                    if result[-1:] == '\n':
+                        result = result[:-1]
+                    if result != '':
+                        print(result)
+                    if prompt.display > 0:
+                        print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+                    prompt.cmdloop()
+                    continue
+            else:
+                if result is None:
+                    continue
+                elif '\3' in result:
+                    result = result.replace('\3','')
+                    if result[-1:] == '\n':
+                        result = result[:-1]
+                    #print('2')
+                    if result != '':
+                        print(result)
+                    if prompt.display > 0:
+                        print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+                    #continue
+                    break
+                else:
+                    #print('4')
+                    if '\4' in result:
+                        result = result.replace('\4','')
+                        prompt.debugger.send_no_more_source()
+                        continue
+                    if result[-1:] == '\n':
+                        result = result[:-1]
+                    if result != '':
+                        print(result)
+                    if prompt.display > 0:
+                        print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+                    #prompt.cmdloop()
+                    continue
         else:
+            if result is None:
+                continue
+            elif '\3' in result:
+                result = result.replace('\3','')
+                if '\4' in result:
+                    result = result.replace('\4','')
+                #print('5')
+                if result[-1:] == '\n':
+                    result = result[:-1]
+                if result != '':
+                    print(result)
+                if prompt.display > 0:
+                    print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+                #continue
+                break
+            else:
+                #print('6')
+                if result[-1:] == '\n':
+                    result = result[:-1]
+                if result != '':
+                    print(result)
+            if prompt.display > 0:
+                print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
             if args.display and prompt.show == 0:
-                print_source(prompt.debugger, prompt.display, 0)
-            prompt.cmdloop()
+                print_source(prompt.debugger, prompt.display, prompt.debugger.src_offset)
+            else:
+                prompt.show = 0
 
-        if prompt.quit:
-            break
+            prompt.cmdloop()
+            continue
 
 
 if __name__ == "__main__":
