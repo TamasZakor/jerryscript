@@ -31,6 +31,7 @@ class DebuggerPrompt(Cmd):
         self.debugger = debugger
         self.stop = False
         self.quit = False
+        self.is_restart = False
         self.debugger.non_interactive = False
 
     def precmd(self, line):
@@ -59,6 +60,7 @@ class DebuggerPrompt(Cmd):
 
     def do_break(self, args):
         """ Insert breakpoints on the given lines or functions """
+        sbreak = ""
         if args == "":
             print("Error: Breakpoint index expected")
         elif ':' in args:
@@ -213,6 +215,7 @@ class DebuggerPrompt(Cmd):
         """ Restart the engine's debug session """
         self.debugger.restart()
         self.stop = True
+        self.is_restart = True
     do_res = do_restart
 
     def do_throw(self, args):
@@ -247,70 +250,81 @@ def src_check_args(args):
 
 # pylint: disable=too-many-branches,too-many-locals,too-many-statements
 def main():
-    args = jerry_client_ws.arguments_parse()
-
-    debugger = jerry_client_ws.JerryDebugger(args.address)
-
-    non_interactive = args.non_interactive
-
-    logging.debug("Connected to JerryScript on %d port", debugger.port)
-
-    prompt = DebuggerPrompt(debugger)
-    prompt.prompt = "(jerry-debugger) "
-    prompt.debugger.non_interactive = non_interactive
-
-    if args.color:
-        debugger.set_colors()
-
-    if args.display:
-        prompt.debugger.display = args.display
-        prompt.do_display(args.display)
-    else:
-        prompt.stop = False
-        if not args.client_source:
-            prompt.debugger.mainloop()
-            result = prompt.debugger.smessage
-            print(result)
-            prompt.debugger.smessage = ''
-            prompt.cmdloop()
-
-    if args.exception is not None:
-        prompt.do_exception(str(args.exception))
-
-    if args.client_source:
-        prompt.debugger.store_client_sources(args.client_source)
-
+    is_restart = False
+    breaked = False
     while True:
-        if prompt.quit:
+        
+        if breaked:
             break
 
-        result = prompt.debugger.mainloop()
+        args = jerry_client_ws.arguments_parse()
+        debugger = jerry_client_ws.JerryDebugger(args.address)
+        non_interactive = args.non_interactive
 
-        if result == '':
-            break
-        if result is None:
-            continue
-        elif jerry_client_ws.JERRY_DEBUGGER_DATA_END in result:
-            result = result.replace(jerry_client_ws.JERRY_DEBUGGER_DATA_END, '')
-            if result.endswith('\n'):
-                result = result.rstrip()
-            if result:
-                print(result)
-                prompt.debugger.smessage = ''
-            if prompt.debugger.display > 0:
-                print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
-            break
+        logging.debug("Connected to JerryScript on %d port", debugger.port)
+
+        prompt = DebuggerPrompt(debugger)
+        prompt.prompt = "(jerry-debugger) "
+        prompt.debugger.non_interactive = non_interactive
+
+        if args.color:
+            debugger.set_colors()
+
+        if args.display:
+            prompt.debugger.display = args.display
+            prompt.do_display(args.display)
         else:
-            if result.endswith('\n'):
-                result = result.rstrip()
-            if result:
-                print(result)
+            prompt.stop = False
+            if not args.client_source:
+                prompt.debugger.mainloop()
+                result = prompt.debugger.smessage
+                if result:
+                    print(result)
                 prompt.debugger.smessage = ''
-            if prompt.debugger.display > 0:
-                print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
-        prompt.cmdloop()
-        continue
+                prompt.cmdloop()
 
+        if args.exception is not None:
+            prompt.do_exception(str(args.exception))
+
+        if args.client_source:
+            prompt.debugger.store_client_sources(args.client_source)
+
+        while True:
+            if prompt.quit:
+                break
+
+            result = prompt.debugger.mainloop()
+
+            if result == '':
+                break
+            if result is None:
+                continue
+            elif jerry_client_ws.JERRY_DEBUGGER_DATA_END in result:
+                result = result.replace(jerry_client_ws.JERRY_DEBUGGER_DATA_END, '')
+                if result.endswith('\n'):
+                    result = result.rstrip()
+                if result:
+                    print(result)
+                    prompt.debugger.smessage = ''
+                if prompt.debugger.display > 0:
+                    print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
+                break
+            else:
+                if result.endswith('\n'):
+                    result = result.rstrip()
+                if result:
+                    print(result)
+                    prompt.debugger.smessage = ''
+                if prompt.debugger.display > 0:
+                    print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
+                prompt.cmdloop()
+                continue
+        if prompt.is_restart:
+            prompt.is_restart = False
+            continue
+        else:
+            breaked = True
+            break
 
 if __name__ == "__main__":
     try:
