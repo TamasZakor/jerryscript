@@ -250,11 +250,11 @@ def src_check_args(args):
 
 # pylint: disable=too-many-branches,too-many-locals,too-many-statements
 def main():
-    is_restart = False
-    breaked = False
+    no_restart = False
+
     while True:
-        
-        if breaked:
+
+        if no_restart:
             break
 
         args = jerry_client_ws.arguments_parse()
@@ -319,11 +319,12 @@ def main():
                     print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
                 prompt.cmdloop()
                 continue
+
         if prompt.is_restart:
             prompt.is_restart = False
             continue
         else:
-            breaked = True
+            no_restart = True
             break
 
 if __name__ == "__main__":

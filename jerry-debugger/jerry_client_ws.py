@@ -24,7 +24,7 @@ import struct
 import sys
 
 # Expected debugger protocol version.
-JERRY_DEBUGGER_VERSION = 4
+JERRY_DEBUGGER_VERSION = 3
 JERRY_DEBUGGER_DATA_END = '\3'
 
 # Messages sent by the server to client.
