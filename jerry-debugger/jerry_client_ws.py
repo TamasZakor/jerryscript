@@ -24,7 +24,7 @@ import struct
 import sys
 
 # Expected debugger protocol version.
-JERRY_DEBUGGER_VERSION = 3
+JERRY_DEBUGGER_VERSION = 4
 JERRY_DEBUGGER_DATA_END = '\3'
 
 # Messages sent by the server to client.
@@ -114,6 +114,8 @@ def arguments_parse():
                         help="set exception config, usage 1: [Enable] or 0: [Disable]")
     parser.add_argument("--client-source", action="store", default=[], type=str, nargs="+",
                         help="specify a javascript source file to execute")
+    parser.add_argument("--coverage-output", action="store", default="coverage_output.json",
+                        help="specify the output file for coverage (default: %(default)s)")
 
     args = parser.parse_args()
 
@@ -262,6 +264,7 @@ class JerryDebugger(object):
         self.non_interactive = False
         self.breakpoint_info = ''
         self.smessage = ''
+        self.coverage_info = {}
 
         self.send_message(b"GET /jerry-debugger HTTP/1.1\r\n" +
                           b"Upgrade: websocket\r\n" +
@@ -368,11 +371,12 @@ class JerryDebugger(object):
 
     def set_break(self, args):
         _set_breakpoint(self, args, False)
-        if self.breakpoint_info != '':
-            sbp = self.breakpoint_info
-            self.breakpoint_info = ''
-            return sbp
-        return None
+        if self.breakpoint_info == '':
+            return None
+        sbp = self.breakpoint_info
+        self.breakpoint_info = ''
+        return sbp
+
 
     def delete(self, args):
         result = ''
@@ -442,7 +446,10 @@ class JerryDebugger(object):
         if not args:
             result = "Error: Status expected!"
         else:
-            enable = int(args)
+            try:
+                enable = int(args)
+            except (ValueError, TypeError) as val_errno:
+                return "Error: Positive integer number expected, %s" % (val_errno)
 
         if enable == 1:
             logging.debug("Stop at exception enabled")
@@ -677,6 +684,17 @@ class JerryDebugger(object):
                                JERRY_DEBUGGER_FUNCTION_NAME_END]:
                 _parse_source(self, data)
 
+                for key in self.function_list:
+                    function = self.function_list[key]
+                    lines = function.lines
+                    print(lines)
+                    if str(function.source_name) not in self.coverage_info:
+                        self.coverage_info[str(function.source_name)] = {}
+
+                    for breakpoint in lines.values():
+                        if str(breakpoint.line) not in self.coverage_info[str(function.source_name)]:
+                            self.coverage_info[function.source_name][str(breakpoint.line)] = False
+
             elif buffer_type == JERRY_DEBUGGER_WAITING_AFTER_PARSE:
                 self.send_command(JERRY_DEBUGGER_PARSER_RESUME)
 
@@ -690,9 +708,7 @@ class JerryDebugger(object):
                 self.last_breakpoint_hit = breakpoint[0]
 
                 if buffer_type == JERRY_DEBUGGER_EXCEPTION_HIT:
-                    result += "Exception throw detected (to disable automatic stop type exception 0)\n"
                     if exception_string:
-                        result += "Exception hint: %s\n" % (exception_string)
                         exception_string = ""
 
                 if breakpoint[1]:
@@ -705,7 +721,15 @@ class JerryDebugger(object):
                 if self.breakpoint_info != '':
                     result += self.breakpoint_info + '\n'
                     self.breakpoint_info = ''
+
                 result += "Stopped %s %s" % (breakpoint_info, breakpoint[0])
+                self.smessage += result
+                return self.smessage
+
+                self.coverage_info[str(breakpoint[0].function.source_name)][str(breakpoint[0].line)] = True
+                if breakpoint[0].active_index >= 0:
+                   self.delete(str(breakpoint[0].active_index))
+
                 self.smessage += result
                 return self.smessage
 

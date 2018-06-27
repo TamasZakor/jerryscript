@@ -1433,7 +1433,7 @@ parser_post_processing (parser_context_t *context_p) /**< context */
       && !(context_p->status_flags & PARSER_DEBUGGER_BREAKPOINT_APPENDED))
   {
     /* Always provide at least one breakpoint. */
-    parser_emit_cbc (context_p, CBC_BREAKPOINT_DISABLED);
+    parser_emit_cbc (context_p, CBC_BREAKPOINT_ENABLED);
     parser_flush_cbc (context_p);
 
     parser_append_breakpoint_info (context_p, JERRY_DEBUGGER_BREAKPOINT_LIST, context_p->token.line);
@@ -1819,7 +1819,7 @@ parser_post_processing (parser_context_t *context_p) /**< context */
     flags = cbc_flags[opcode];
 
 #ifdef JERRY_DEBUGGER
-    if (opcode == CBC_BREAKPOINT_DISABLED)
+    if (opcode == CBC_BREAKPOINT_ENABLED)
     {
       uint32_t bp_offset = (uint32_t) (((uint8_t *) dst_p) - ((uint8_t *) compiled_code_p) - 1);
       parser_append_breakpoint_info (context_p, JERRY_DEBUGGER_BREAKPOINT_OFFSET_LIST, bp_offset);

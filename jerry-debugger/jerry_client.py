@@ -22,6 +22,8 @@ import socket
 import sys
 import logging
 import time
+import json
+import os
 import jerry_client_ws
 
 class DebuggerPrompt(Cmd):
@@ -114,7 +116,8 @@ class DebuggerPrompt(Cmd):
         self.stop = True
         if not args:
             args = 0
-            self.debugger.next()
+            #self.debugger.next()
+            self.onecmd('c')
         else:
             try:
                 args = int(args)
@@ -130,14 +133,14 @@ class DebuggerPrompt(Cmd):
                         if result != '':
                             print(result)
                             self.debugger.smessage = ''
-                        if self.debugger.display > 0:
-                            print(self.debugger.print_source(self.debugger.display,
-                                                             self.debugger.src_offset))
+
                         args = int(args) - 1
-                    self.cmdloop()
+                    #self.debugger.next()
+                    self.onecmd('c')
             except ValueError as val_errno:
                 print("Error: expected a positive integer: %s" % val_errno)
-                self.cmdloop()
+                #self.debugger.next()
+                self.onecmd('c')
     do_n = do_next
 
     def do_step(self, _):
@@ -152,6 +155,7 @@ class DebuggerPrompt(Cmd):
         self.stop = True
     do_bt = do_backtrace
 
+
     def do_src(self, args):
         """ Get current source code """
         if args:
@@ -159,7 +163,7 @@ class DebuggerPrompt(Cmd):
             if line_num >= 0:
                 print(self.debugger.print_source(line_num, 0))
     do_source = do_src
-
+    
     def do_scroll(self, _):
         """ Scroll the source up or down """
         while True:
@@ -234,7 +238,6 @@ def _scroll_direction(debugger, direction):
         debugger.src_offset -= debugger.src_offset_diff
     else:
         debugger.src_offset += debugger.src_offset_diff
-    print(debugger.print_source(debugger.display, debugger.src_offset))
 
 def src_check_args(args):
     try:
@@ -258,15 +261,19 @@ def main():
             break
 
         args = jerry_client_ws.arguments_parse()
+
         debugger = jerry_client_ws.JerryDebugger(args.address)
-        non_interactive = args.non_interactive
 
         logging.debug("Connected to JerryScript on %d port", debugger.port)
 
         prompt = DebuggerPrompt(debugger)
         prompt.prompt = "(jerry-debugger) "
-        prompt.debugger.non_interactive = non_interactive
-
+        prompt.debugger.non_interactive = args.non_interactive
+        
+        if os.path.isfile(args.coverage_output):
+            with open(args.coverage_output) as data:
+                prompt.debugger.coverage_info = json.load(data)
+        
         if args.color:
             debugger.set_colors()
 
@@ -290,11 +297,11 @@ def main():
             prompt.debugger.store_client_sources(args.client_source)
 
         while True:
+
             if prompt.quit:
                 break
 
             result = prompt.debugger.mainloop()
-
             if result == '':
                 break
             if result is None:
@@ -306,8 +313,6 @@ def main():
                 if result:
                     print(result)
                     prompt.debugger.smessage = ''
-                if prompt.debugger.display > 0:
-                    print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
                 break
             else:
                 if result.endswith('\n'):
@@ -315,8 +320,6 @@ def main():
                 if result:
                     print(result)
                     prompt.debugger.smessage = ''
-                if prompt.debugger.display > 0:
-                    print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset))
                 prompt.cmdloop()
                 continue
 
@@ -326,6 +329,14 @@ def main():
         else:
             no_restart = True
             break
+
+    with open(args.coverage_output, 'w') as outfile:
+        for func_name in prompt.debugger.coverage_info:
+            breakpoints = prompt.debugger.coverage_info[func_name]
+            prompt.debugger.coverage_info[func_name] = {int(k) : v for k, v in breakpoints.items()}
+
+        json.dump(prompt.debugger.coverage_info, outfile)
+        print("Finished the execution.")
 
 if __name__ == "__main__":
     try:

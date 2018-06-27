@@ -341,7 +341,7 @@ parser_parse_var_statement (parser_context_t *context_p) /**< context */
         cbc_argument_t last_cbc = context_p->last_cbc;
         context_p->last_cbc_opcode = PARSER_CBC_UNAVAILABLE;
 
-        parser_emit_cbc (context_p, CBC_BREAKPOINT_DISABLED);
+        parser_emit_cbc (context_p, CBC_BREAKPOINT_ENABLED);
         parser_flush_cbc (context_p);
 
         parser_append_breakpoint_info (context_p, JERRY_DEBUGGER_BREAKPOINT_LIST, ident_line_counter);
@@ -1707,7 +1707,7 @@ parser_parse_statements (parser_context_t *context_p) /**< context */
       {
         JERRY_ASSERT (context_p->last_breakpoint_line == 0);
 
-        parser_emit_cbc (context_p, CBC_BREAKPOINT_DISABLED);
+        parser_emit_cbc (context_p, CBC_BREAKPOINT_ENABLED);
         parser_flush_cbc (context_p);
 
         parser_append_breakpoint_info (context_p, JERRY_DEBUGGER_BREAKPOINT_LIST, context_p->token.line);
@@ -1777,7 +1777,7 @@ parser_parse_statements (parser_context_t *context_p) /**< context */
         && context_p->token.type != LEXER_KEYW_CASE
         && context_p->token.type != LEXER_KEYW_DEFAULT)
     {
-      parser_emit_cbc (context_p, CBC_BREAKPOINT_DISABLED);
+      parser_emit_cbc (context_p, CBC_BREAKPOINT_ENABLED);
       parser_flush_cbc (context_p);
 
       parser_append_breakpoint_info (context_p, JERRY_DEBUGGER_BREAKPOINT_LIST, context_p->token.line);
