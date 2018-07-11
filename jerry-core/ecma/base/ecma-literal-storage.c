@@ -499,6 +499,7 @@ ecma_snapshot_get_literal (const uint8_t *literal_base_p, /**< literal start */
   uint16_t length = *(const uint16_t *) literal_p;
 
   return ecma_find_or_create_literal_string (literal_p + sizeof (uint16_t), length);
+
 } /* ecma_snapshot_get_literal */
 
 #endif /* JERRY_ENABLE_SNAPSHOT_EXEC || JERRY_ENABLE_SNAPSHOT_SAVE */
