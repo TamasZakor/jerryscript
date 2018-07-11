@@ -469,6 +469,18 @@ ecma_save_literals_for_snapshot (ecma_collection_header_t *lit_pool_p, /**< list
  *
  * @return literal compressed pointer
  */
+#define PRINT_ECMA_STRING(string) \
+           do \
+           { \
+             lit_utf8_size_t size = ecma_string_get_size ((string)); \
+             lit_utf8_byte_t buffer[size+1]; \
+             size = ecma_string_copy_to_cesu8_buffer ((string), buffer, size); \
+             buffer[size] = '\n'; \
+             buffer[size+1] = '\0'; \
+             FILE *file_p = fopen ("literals_merge.list", "a"); \
+             fwrite (buffer, sizeof(lit_utf8_byte_t), sizeof (buffer), file_p); \
+             fclose (file_p); \
+           } while (0)
 ecma_value_t
 ecma_snapshot_get_literal (const uint8_t *literal_base_p, /**< literal start */
                            ecma_value_t literal_value) /**< string / number offset */
@@ -476,7 +488,7 @@ ecma_snapshot_get_literal (const uint8_t *literal_base_p, /**< literal start */
   JERRY_ASSERT ((literal_value & ECMA_VALUE_TYPE_MASK) == ECMA_TYPE_SNAPSHOT_OFFSET);
 
   const uint8_t *literal_p = literal_base_p + (literal_value >> JERRY_SNAPSHOT_LITERAL_SHIFT);
-
+  PRINT_ECMA_STRING(ecma_get_string_from_value(*literal_p));
   if (literal_value & JERRY_SNAPSHOT_LITERAL_IS_NUMBER)
   {
     ecma_number_t num;
