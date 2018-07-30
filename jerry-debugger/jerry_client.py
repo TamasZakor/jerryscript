@@ -22,6 +22,8 @@ import socket
 import sys
 import logging
 import time
+import json
+import os
 import jerry_client_ws
 
 class DebuggerPrompt(Cmd):
@@ -104,104 +106,17 @@ class DebuggerPrompt(Cmd):
                             print(self.debugger.print_source(self.debugger.display,
                                                              self.debugger.src_offset).get_data())
                         args = int(args) - 1
-                    self.cmdloop()
+                    self.onecmd('c')
             except ValueError as val_errno:
                 print("Error: expected a positive integer: %s" % val_errno)
-                self.cmdloop()
+                self.onecmd('c')
     do_n = do_next
-
-    def do_step(self, _):
-        """ Next breakpoint, step into functions """
-        self.debugger.step()
-        self.stop = True
-    do_s = do_step
-
-    def do_backtrace(self, args):
-        """ Get backtrace data from debugger """
-        result = self.debugger.backtrace(args)
-        if self.debugger.not_empty(result):
-            print(result.get_data())
-            self.stop = True
-            self.cmdloop()
-        else:
-            self.stop = True
-            self.backtrace = True
-    do_bt = do_backtrace
-
-    def do_src(self, args):
-        """ Get current source code """
-        if args:
-            line_num = src_check_args(args)
-            if line_num >= 0:
-                print(self.debugger.print_source(line_num, 0).get_data())
-    do_source = do_src
-
-    def do_scroll(self, _):
-        """ Scroll the source up or down """
-        while True:
-            key = sys.stdin.readline()
-            if key == 'w\n':
-                _scroll_direction(self.debugger, "up")
-            elif key == 's\n':
-                _scroll_direction(self.debugger, "down")
-            elif key == 'q\n':
-                break
-            else:
-                print("Invalid key")
 
     def do_continue(self, _):
         """ Continue execution """
         self.debugger.get_continue()
         self.stop = True
-        if self.debugger.check_empty_data(self.debugger.non_interactive):
-            print("Press enter to stop JavaScript execution.")
     do_c = do_continue
-
-    def do_finish(self, _):
-        """ Continue running until the current function returns """
-        self.debugger.finish()
-        self.stop = True
-    do_f = do_finish
-
-    def do_dump(self, args):
-        """ Dump all of the debugger data """
-        if args:
-            print("Error: No argument expected")
-        else:
-            pprint(self.debugger.function_list)
-
-    def do_eval(self, args):
-        """ Evaluate JavaScript source code """
-        self.debugger.eval(args)
-        self.stop = True
-    do_e = do_eval
-
-    def do_memstats(self, _):
-        """ Memory statistics """
-        self.debugger.memstats()
-        self.stop = True
-    do_ms = do_memstats
-
-    def do_abort(self, args):
-        """ Throw an exception """
-        self.debugger.abort(args)
-        self.stop = True
-
-    def do_restart(self, _):
-        """ Restart the engine's debug session """
-        self.debugger.restart()
-        self.stop = True
-    do_res = do_restart
-
-    def do_throw(self, args):
-        """ Throw an exception """
-        self.debugger.throw(args)
-        self.stop = True
-
-    def do_exception(self, args):
-        """ Config the exception handler module """
-        result = self.debugger.exception(args)
-        print(result.get_data())
 
 def _scroll_direction(debugger, direction):
     """ Helper function for do_scroll """
@@ -236,8 +151,9 @@ def main():
     prompt.prompt = "(jerry-debugger) "
     prompt.debugger.non_interactive = args.non_interactive
 
-    if args.color:
-        debugger.set_colors()
+    if os.path.isfile(args.coverage_output):
+        with open(args.coverage_output) as data:
+            prompt.debugger.coverage_info = json.load(data)
 
     if args.display:
         prompt.debugger.display = args.display
@@ -247,15 +163,14 @@ def main():
         if prompt.debugger.check_empty_data(args.client_source):
             prompt.debugger.mainloop()
             result = prompt.debugger.smessage
-            print(result)
+            #print(result)
             prompt.debugger.smessage = ''
-            prompt.cmdloop()
-
-    if  prompt.debugger.not_empty(args.exception):
-        prompt.do_exception(str(args.exception))
+            prompt.onecmd('c')
 
     if args.client_source:
         prompt.debugger.store_client_sources(args.client_source)
+
+    prompt.onecmd('c')
 
     while True:
         if prompt.quit:
@@ -274,22 +189,24 @@ def main():
             if result.endswith('\n'):
                 result = result.rstrip()
             if result:
-                print(result)
                 prompt.debugger.smessage = ''
-            if prompt.debugger.display > 0:
-                print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset).get_data())
             prompt.backtrace = False
             break
         else:
             if result.endswith('\n'):
                 result = result.rstrip()
             if result:
-                print(result)
                 prompt.debugger.smessage = ''
-            if prompt.debugger.display > 0:
-                print(prompt.debugger.print_source(prompt.debugger.display, prompt.debugger.src_offset).get_data())
-        prompt.cmdloop()
+        prompt.onecmd('c')
         continue
+
+    with open(args.coverage_output, 'w') as outfile:
+        for func_name in prompt.debugger.coverage_info:
+            breakpoints = prompt.debugger.coverage_info[func_name]
+            prompt.debugger.coverage_info[func_name] = {int(k) : v for k, v in breakpoints.items()}
+
+        json.dump(prompt.debugger.coverage_info, outfile)
+        print("Finished the execution.")
 
 if __name__ == "__main__":
     try:
